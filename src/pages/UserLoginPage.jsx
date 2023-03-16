@@ -1,75 +1,89 @@
-import React, { Component } from "react";
-import { withTranslation } from "react-i18next";
-import { login } from "../api/apiCalls.js";
+import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Input from "../components/Input.jsx";
 import LanguageSelector from "../components/LanguageSelector.jsx";
+import ButtonWithProgres from "../components/ButtonWithProgres.jsx";
+import { useApiProgress } from "../shared/ApiProgres.jsx";
+import { loginHandler } from "../redux/authActions.js";
+import { useState } from "react";
+import { useDispatch } from "react-redux";
 
-class UserLoginPage extends Component {
-  state = {
-    userName: null,
-    password: null,
-    pendingApiCall: false,
-  };
+const UserLoginPage = (props) => {
+  const [userName, setUsername] = useState("");
+  const [password, setPassword] = useState();
+  const [error, setError] = useState();
+  const dispatch = useDispatch();
 
-  onChange = (event) => {
-    const { name, value } = event.target;
-    this.setState({
-      [name]: value,
-    });
-  };
+  useEffect(() => {
+    setError(null);
+  }, [userName, password]);
 
-  onClickLogin = async (event) => {
+  const onClickLogin = async (event) => {
     event.preventDefault();
 
-    const { userName, password } = this.state;
+    setError(null);
     const creds = {
-      username: userName,
+      userName: userName,
       password,
     };
-
-    await login(creds);
+    const { history } = props;
+    try {
+      await dispatch(loginHandler(creds));
+      history.push("/");
+    } catch (error) {
+      if (error.response) {
+        setError(error.response.data.message);
+      }
+    }
   };
-
-  render() {
-    const { t } = this.props;
-    const { pendingApiCall } = this.state;
-    return (
-      <div>
-        <div className="container">
-          <h1 className="text-center">{t("Login")}</h1>
-          <form action="" className="w-100 h-75 d-flex flex-column gap-4">
-            <Input
-              label={t("UserName")}
-              error=""
-              name="userName"
-              onChange={this.onChange}
-              type="text"
-            />
-            <Input
-              label={t("Password")}
-              error=""
-              name="password"
-              onChange={this.onChange}
-              type="password"
-            />
-            <div>
-              <button className="btn btn-primary" onClick={this.onClickLogin}>
-                {pendingApiCall && (
-                  <span
-                    className="spinner-border spinner-border-sm"
-                    role="status"
-                    aria-hidden="true"
-                  ></span>
-                )}
-                {t("Send")}
-              </button>
+  const pendingApiCall = useApiProgress("post", "/api/1.0/auth");
+  const { t } = useTranslation();
+  const buttonEnable = userName && password;
+  return (
+    <div>
+      <div className="container">
+        <h1 className="text-center">{t("Login")}</h1>
+        <form action="" className="w-100 h-75 d-flex flex-column gap-4">
+          <Input
+            label={t("UserName")}
+            error=""
+            name="userName"
+            onChange={(e) => setUsername(e.target.value)}
+            type="text"
+          />
+          <Input
+            label={t("Password")}
+            error=""
+            name="password"
+            onChange={(e) => setPassword(e.target.value)}
+            type="password"
+          />
+          {error && (
+            <div className="alert alert-danger" role="alert">
+              {error}
             </div>
-          </form>
-          <LanguageSelector />
-        </div>
+          )}
+          <div>
+            <ButtonWithProgres
+              onClick={onClickLogin}
+              disabled={pendingApiCall}
+              pendingApiCall={pendingApiCall}
+              text="Login"
+            />{" "}
+          </div>
+        </form>
+        <LanguageSelector />
       </div>
-    );
-  }
-}
+    </div>
+  );
+};
 
-export default withTranslation()(UserLoginPage);
+// const mapDispatchToProps = (dispatch) => {
+//   return {
+//     onLoginSuccess: (state) => {
+//       dispatch(loginSuccess(state));
+//     },
+//   };
+// };
+
+export default UserLoginPage;

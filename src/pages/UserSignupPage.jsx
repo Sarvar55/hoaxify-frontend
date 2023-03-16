@@ -1,154 +1,121 @@
-import React, { Component } from "react";
-import { signUp, changeLanguage } from "../api/apiCalls";
+import React, { useState } from "react";
 import Input from "../components/Input";
-import { withTranslation } from "react-i18next";
-import turkey from "../images/turkey.png";
-import usa from "../images/united-states-of-america.png";
+import ButtonWithProgres from "../components/ButtonWithProgres";
+import withApiProgres, { useApiProgress } from "../shared/ApiProgres";
+import { signUpHandler } from "../redux/authActions";
+import { useDispatch } from "react-redux";
+import { useTranslation } from "react-i18next";
+import LanguageSelector from "../components/LanguageSelector";
 //proxy=> webpack tanmadigi requesleri arka planda localhst:8080 e gonderiyor
-class UserSignupPage extends Component {
-  state = {
-    username: null,
-    displayName: null,
-    password: null,
-    passwordRepeat: null,
-    pendingApiCall: false,
-    errors: {},
-  };
+const UserSignupPage = (props) => {
+  const [form, setForm] = useState({
+    userName: undefined,
+    displayName: undefined,
+    password: undefined,
+    passwordRepeat: undefined,
+  });
+  const [errors, setErrors] = useState({});
+  const dispatch = useDispatch();
 
-  //tavsiye edilen yontem stati diek degilde setstate diyerrek degistirmek
-  onChange = (event) => {
-    const { t } = this.props;
+  //tavsiye edilen yontem state i direk degilde setState() diyerrek degistirmek
+  const onChange = (event) => {
     const { value, name } = event.target;
-    const errors = { ...this.state.errors };
-    errors[name] = undefined;
-    if (name === "password" || name === "passwordRepeat") {
-      if (name === "password" && value !== this.state.passwordRepeat) {
-        errors.passwordRepeat = t("password mismach");
-      } else if (name === "passwordRepeat" && value !== this.state.password) {
-        errors.passwordRepeat = t("password mismach");
-      } else {
-        errors.passwordRepeat = undefined;
-      }
-    }
-
-    this.setState({
-      [name]: value,
-      errors,
+    setErrors((prev) => {
+      return {
+        ...prev,
+        [name]: undefined,
+      };
+    });
+    setForm((prev) => {
+      return {
+        ...prev,
+        [name]: value,
+      };
     });
   };
-  onClickSignUp = async (event) => {
+  console.log("onclicikn ustundeyem");
+  const onClickSignUp = async (event) => {
     event.preventDefault();
-
-    const { username, displayName, password } = this.state;
-
     const body = {
-      username,
-      displayName,
-      password,
+      userName: form.userName,
+      displayName: form.displayName,
+      password: form.password,
     };
-    console.log(body);
 
-    this.setState({ pendingApiCall: true });
-
-    // signUp(body)
-    //   .then((response) => {
-    //     this.setState({ pendingApiCall: false });
-    //   })
-    //   .catch((error) => {
-    //     this.setState({ pendingApiCall: false });
-    //   });
-
+    const { history } = props;
     try {
-      const response = await signUp(body);
+      await dispatch(signUpHandler(body));
+      history.push("/");
     } catch (error) {
       if (error.response.data.validationsErrors) {
         //bunu yaptik cunki asagida object parcalama yaptikda hata aliyorduk
-        this.setState({ errors: error.response.data.validationsErrors });
+        setErrors(error.response.data.validationsErrors);
       }
     }
-
-    this.setState({ pendingApiCall: false });
+    console.log("ciicin icinde");
   };
-  onChangeLanguange = (language) => {
-    const { i18n } = this.props;
-    i18n.changeLanguage(language);
-    changeLanguage(language);
-  };
+  console.log("signup istegindeyem");
+  const pendingApiCallSignUp = useApiProgress("post", "/api/1.0/users");
+  console.log("login istegindeyem");
+  const pendingApiCallLogin = useApiProgress("post", "/api/1.0/auth");
+  const pendingApiCall = pendingApiCallLogin || pendingApiCallSignUp;
+  const { t } = useTranslation();
+  const {
+    userName: userNameError,
+    displayName: displayNameError,
+    password: passwordError,
+  } = errors;
 
-  render() {
-    const { pendingApiCall, errors } = this.state;
-    const { t } = this.props;
-    const { username, displayName, password, passwordRepeat } = errors;
-    return (
-      <div className="container">
-        <form action="">
-          <h1 className="text-center">{t("Signup Page")}</h1>
-          <Input
-            name="username"
-            label={t("UserName")}
-            error={username}
-            onChange={this.onChange}
-          />
+  let passwordRepeatError;
+  if (form.password !== form.passwordRepeat)
+    passwordRepeatError = t("Password mismatch");
 
-          <Input
-            name="displayName"
-            label={t("Display Name")}
-            error={displayName}
-            onChange={this.onChange}
-          />
+  return (
+    <div className="container">
+      <form action="">
+        <h1 className="text-center">{t("Signup Page")}</h1>
+        <Input
+          name="userName"
+          label={t("UserName")}
+          error={userNameError}
+          onChange={onChange}
+        />
 
-          <Input
-            name="password"
-            label={t("Password")}
-            type={"password"}
-            error={password}
-            onChange={this.onChange}
-          />
+        <Input
+          name="displayName"
+          label={t("Display Name")}
+          error={displayNameError}
+          onChange={onChange}
+        />
 
-          <Input
-            name="passwordRepeat"
-            label={t("Password Repeat")}
-            error={passwordRepeat}
-            type={"password"}
-            onChange={this.onChange}
-          />
+        <Input
+          name="password"
+          label={t("Password")}
+          type={"password"}
+          error={passwordError}
+          onChange={onChange}
+        />
 
-          <div className="w-100 text-center">
-            <button
-              disabled={pendingApiCall || passwordRepeat !== undefined}
-              className="btn btn-success mt-2 w-25 h-50 px-3"
-              onClick={this.onClickSignUp}
-              type="submit"
-            >
-              {pendingApiCall && (
-                <span
-                  className="spinner-border spinner-border-sm"
-                  role="status"
-                  aria-hidden="true"
-                ></span>
-              )}
-              SignUp
-            </button>
-          </div>
-          <div>
-            <img
-              src={turkey}
-              alt=""
-              className="mx-1 pointer-event cursor"
-              onClick={() => this.onChangeLanguange("tr")}
-            />
-            <img
-              src={usa}
-              alt=""
-              className="mx-1 cursor"
-              onClick={() => this.onChangeLanguange("en")}
-            />
-          </div>
-        </form>
-      </div>
-    );
-  }
-}
-const UserSingupPageWithTranslation = withTranslation()(UserSignupPage);
+        <Input
+          name="passwordRepeat"
+          label={t("Password Repeat")}
+          error={passwordRepeatError}
+          type={"password"}
+          onChange={onChange}
+        />
 
-export default UserSingupPageWithTranslation;
+        <div className="w-100 text-center">
+          <ButtonWithProgres
+            onClick={onClickSignUp}
+            disabled={pendingApiCall}
+            pendingApiCall={pendingApiCall}
+            text="Sign"
+          />{" "}
+        </div>
+        <LanguageSelector />
+      </form>
+    </div>
+  );
+};
+
+export default UserSignupPage;
